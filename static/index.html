@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Editor</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Video <span>Editor</span></h1>
+  <div class="header-spacer"></div>
+  <span id="header-count" style="font-size:12px;color:var(--muted)"></span>
+  <button class="btn btn-sm btn-secondary" id="settings-btn" title="Settings">⚙ Settings</button>
+</header>
+
+<!-- Settings modal -->
+<div id="settings-overlay" class="modal-overlay">
+  <div id="settings-modal" class="modal" style="min-width:340px">
+    <h2>Settings</h2>
+    <div class="modal-row">
+      <label>Anthropic API Key</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="password" id="api-key-input" placeholder="sk-ant-…" style="flex:1">
+        <button class="btn btn-sm" id="api-key-toggle" style="padding:4px 8px;font-size:12px">Show</button>
+      </div>
+      <div id="api-key-status" style="font-size:11px;margin-top:4px;color:var(--muted)">Not configured</div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-sm btn-secondary" id="settings-cancel">Cancel</button>
+      <button class="btn btn-sm" id="settings-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Left: Library -->
+<aside id="library">
+  <div class="section-label">Clip Library</div>
+  <div id="library-upload-zone">
+    <span>Drop mp4 / jpg / png or</span>
+    <label for="lib-file-input" class="lib-upload-btn">Browse</label>
+    <input type="file" id="lib-file-input" accept=".mp4,.jpg,.jpeg,.png" multiple>
+  </div>
+  <div id="library-cards"></div>
+</aside>
+
+<!-- Center top: Preview -->
+<section id="preview-panel">
+  <video id="preview" controls style="display:none"></video>
+  <img id="preview-img" style="display:none">
+  <div id="preview-placeholder">
+    <div style="font-size:48px;margin-bottom:8px">▶</div>
+    Click a clip to preview
+  </div>
+</section>
+
+<!-- Center bottom: Timeline -->
+<section id="timeline-panel">
+  <div id="timeline"></div>
+</section>
+
+<!-- Right: Inspector -->
+<aside id="inspector">
+  <div class="inspector-empty">Click a timeline clip to edit</div>
+</aside>
+
+<!-- Footer: Audio + Export -->
+<footer>
+  <div>
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Audio Track</div>
+    <div id="audio-drop">Drop audio file or click to upload</div>
+    <input type="file" id="audio-input" accept=".mp3,.wav,.aac,.ogg,.m4a,.flac">
+  </div>
+
+  <div style="flex:1"></div>
+
+  <label class="sr-toggle" title="Upscale to 1920×1080 with Lanczos + sharpening">
+    <input type="checkbox" id="sr-toggle">
+    <span class="sr-toggle-track"><span class="sr-toggle-thumb"></span></span>
+    <span class="sr-toggle-label">Super Resolution<br><small>1280×720 → 1080p</small></span>
+  </label>
+
+  <div id="export-progress-wrap">
+    <div id="export-status-text">Rendering…</div>
+    <div id="export-progress-bar-bg">
+      <div id="export-progress-bar"></div>
+    </div>
+    <a id="download-link" style="display:none"></a>
+  </div>
+
+  <button class="btn" id="export-btn">&#9654; Export Video</button>
+</footer>
+
+<!-- Transition modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>Edit Transition</h2>
+    <div class="modal-row">
+      <label>Type</label>
+      <select id="modal-type">
+        <option value="none">Cut (instant)</option>
+        <optgroup label="Blend">
+          <option value="fade">Crossfade / Dissolve</option>
+          <option value="fadeblack">Fade through black</option>
+          <option value="fadewhite">Fade through white</option>
+          <option value="distance">Distance dissolve</option>
+          <option value="pixelize">Pixelize</option>
+          <option value="zoomin">Zoom in</option>
+        </optgroup>
+        <optgroup label="Wipe">
+          <option value="wipeleft">Wipe left</option>
+          <option value="wiperight">Wipe right</option>
+          <option value="wipeup">Wipe up</option>
+          <option value="wipedown">Wipe down</option>
+          <option value="radial">Radial wipe</option>
+          <option value="diagtl">Diagonal ↖</option>
+          <option value="diagtr">Diagonal ↗</option>
+          <option value="hlslice">H-slice</option>
+          <option value="vuslice">V-slice</option>
+        </optgroup>
+        <optgroup label="Slide">
+          <option value="slideleft">Slide left</option>
+          <option value="slideright">Slide right</option>
+          <option value="slideup">Slide up</option>
+          <option value="slidedown">Slide down</option>
+          <option value="smoothleft">Smooth left</option>
+          <option value="smoothright">Smooth right</option>
+          <option value="smoothup">Smooth up</option>
+          <option value="smoothdown">Smooth down</option>
+        </optgroup>
+        <optgroup label="Shape">
+          <option value="circleopen">Circle open</option>
+          <option value="circleclose">Circle close</option>
+          <option value="circlecrop">Circle crop</option>
+          <option value="rectcrop">Rect crop</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>Duration (seconds)</label>
+      <input type="number" id="modal-dur" min="0.1" max="5" step="0.1" value="1.0">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-sm btn-secondary" id="modal-cancel">Cancel</button>
+      <button class="btn btn-sm" id="modal-apply">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<script src="/editor.js"></script>
+</body>
+</html>

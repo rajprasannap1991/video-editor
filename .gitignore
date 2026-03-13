@@ -1,0 +1,23 @@
+# Generated directories
+exports/
+thumbnails/
+__pycache__/
+
+# User media uploads
+media/
+uploads/
+
+# App config (contains API keys)
+config.json
+
+# Claude internal
+.claude/
+
+# Python
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
