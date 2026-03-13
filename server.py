@@ -397,6 +397,9 @@ def _render(job_id: str, config: ExportConfig):
         n = len(config.clips)
 
         # ── Step 1: trim/convert + caption each clip ──────────────────────
+        # Every clip is re-encoded to a common framerate and resolution so that
+        # the xfade filter (step 2) receives streams with identical parameters.
+        # Mismatched framerates are the most common cause of xfade exit-234 errors.
         FPS = 30
         if config.super_resolution:
             W, H = 1920, 1080
@@ -463,7 +466,9 @@ def _render(job_id: str, config: ExportConfig):
             has_xfade = any(t.type not in ("none", "cut") for t in transitions)
 
             if has_xfade:
-                # Get durations of all trimmed clips
+                # Measure the actual duration of each trimmed/encoded clip.
+                # We need these to compute xfade offsets (= cumulative duration minus
+                # the transition overlap up to that point).
                 clip_durs: list[float] = []
                 for cp in clip_paths:
                     r = run([
@@ -476,12 +481,16 @@ def _render(job_id: str, config: ExportConfig):
                 for cp in clip_paths:
                     inputs += ["-i", str(cp)]
 
-                # Pre-label each input stream to avoid reuse conflicts
+                # Pre-label every input stream with setpts=PTS-STARTPTS so that
+                # xfade receives monotonically-increasing timestamps on each side.
+                # Without this, stream labels collide and FFmpeg errors out.
                 filter_parts: list[str] = []
                 for k in range(len(clip_paths)):
                     filter_parts.append(f"[{k}:v]setpts=PTS-STARTPTS[s{k}]")
 
-                # Chain xfade; "none" transitions become imperceptible 1-frame fades
+                # Build the xfade chain: [s0][s1] → [v1], [v1][s2] → [v2], …, → [vout]
+                # "none"/"cut" transitions are kept in the chain as a 1ms fade so that
+                # mixed cut+effect timelines don't require two separate filter graphs.
                 prev_label = "[s0]"
                 offset = 0.0
                 for idx in range(1, len(clip_paths)):
@@ -491,6 +500,9 @@ def _render(job_id: str, config: ExportConfig):
                     xtype = "fade" if is_cut else (
                         t.type if t.type in XFADE_TRANSITIONS else "fade"
                     )
+                    # offset = when the transition should START, measured from the
+                    # beginning of the concatenated stream (accounting for overlaps
+                    # consumed by previous transitions).
                     offset += clip_durs[idx - 1] - tdur
                     out_label = f"[v{idx}]" if idx < len(clip_paths) - 1 else "[vout]"
                     filter_parts.append(
